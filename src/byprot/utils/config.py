@@ -134,7 +134,7 @@ def instantiate_from_config(cfg: OmegaConf, group=None, **override_kwargs):
             return target_cls(**cfg, **override_kwargs)
         except:
             cfg = merge_config(cfg, override_kwargs)
-            return target_cls(**cfg)
+            return target_cls(cfg)
 
 
 def instantiate_from_config2(config):

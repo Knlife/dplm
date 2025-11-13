@@ -169,11 +169,17 @@ def get_net_dplm2(cfg):
                 MultimodalDiffusionProteinLanguageModel,
             )
 
+            # pretrained_net = (
+            #     MultimodalDiffusionProteinLanguageModel.from_pretrained(
+            #         pretrained_model_name_or_path, from_huggingface=False
+            #     ).net
+            # )
             pretrained_net = (
                 MultimodalDiffusionProteinLanguageModel.from_pretrained(
-                    pretrained_model_name_or_path, from_huggingface=False
+                    pretrained_model_name_or_path, from_huggingface=True
                 ).net
             )
+
             if issubclass(type(pretrained_net), PeftModel):
                 pretrained_net = pretrained_net.merge_and_unload()
             pretrained_state_dict = pretrained_net.state_dict()
