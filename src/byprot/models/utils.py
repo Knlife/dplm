@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-import importlib
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,7 +9,7 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 from huggingface_hub import snapshot_download
-from transformers import AutoConfig, AutoModelForMaskedLM, AutoTokenizer
+from transformers import AutoConfig, AutoModelForMaskedLM
 
 from byprot.utils import load_yaml_config
 
@@ -161,9 +160,7 @@ def get_net_dplm2(cfg):
 
             pretrained_bias = net.lm_head.bias
             net.lm_head.bias = nn.Parameter(
-                torch.zeros(
-                    getattr(cfg.tokenizer, "vocab_size", 33 + 8192 + 4)
-                )
+                torch.zeros(getattr(cfg.tokenizer, "vocab_size", 33 + 8192 + 4))
             )
             net.lm_head.bias.data[:33] = pretrained_bias.data[:33]
         elif training_stage == "continue_train_from_dplm2":
@@ -335,9 +332,7 @@ def sample_from_categorical(logits=None, temperature=1.0):
 def stochastic_sample_from_categorical(
     logits=None, temperature=1.0, noise_scale=1.0
 ):
-    gumbel_noise = -torch.log(
-        -torch.log(torch.rand_like(logits) + 1e-8) + 1e-8
-    )
+    gumbel_noise = -torch.log(-torch.log(torch.rand_like(logits) + 1e-8) + 1e-8)
     logits = logits + noise_scale * gumbel_noise
     tokens, scores = sample_from_categorical(logits, temperature)
     # scores, tokens = logits.log_softmax(dim=-1).max(dim=-1)
@@ -390,9 +385,13 @@ def get_struct_tokenizer(
     from byprot.models.structok.structok_lfq import VQModel
 
     if os.path.exists(model_name_or_path):
-        root_path = f"{model_name_or_path}/.hydra"
+        # root_path = f"{model_name_or_path}/.hydra"
+        root_path = f"{model_name_or_path}"
     else:
         root_path = Path(snapshot_download(repo_id=model_name_or_path))
+
+    root_path = model_name_or_path
+
     cfg = load_yaml_config(f"{root_path}/config.yaml")
     stok = VQModel(**cfg)
     pretrained_state_dict = torch.load(

@@ -1,0 +1,15 @@
+_target_: tokenized_complex
+
+data_dir: ${paths.data_dir}
+# dataloader related
+max_tokens: 4000
+max_len: 1018
+num_workers: 4
+csv_file: SAbDab
+vocab_file: airkingbd/dplm2_650m # or a vocab.txt file from local
+
+length_crop: true
+cluster_training: false
+min_crop_length: 60
+
+struct_vocab_size: 8192

@@ -20,7 +20,6 @@ import mdtraj as md
 import numpy as np
 import torch
 from Bio import PDB
-from Bio.PDB import PDBIO, MMCIFParser
 from Bio.PDB.Chain import Chain
 from openfold.utils import rigid_utils as ru
 from torch_scatter import scatter, scatter_add
@@ -100,9 +99,7 @@ def pad_feats(raw_feats, max_len, use_torch=False):
         if feat_name in raw_feats:
             padded_feats[feat_name] = pad_rigid(raw_feats[feat_name], max_len)
     for feat_name in raw_feats:
-        if feat_name in UNPADDED_FEATS or isinstance(
-            raw_feats[feat_name], str
-        ):
+        if feat_name in UNPADDED_FEATS or isinstance(raw_feats[feat_name], str):
             padded_feats[feat_name] = raw_feats[feat_name]
     return padded_feats
 
@@ -200,7 +197,7 @@ def batch_align_structures(pos_1, pos_2, mask=None):
     if pos_1.shape != pos_2.shape:
         raise ValueError("pos_1 and pos_2 must have the same shape.")
     if pos_1.ndim != 3:
-        raise ValueError(f"Expected inputs to have shape [B, N, 3]")
+        raise ValueError("Expected inputs to have shape [B, N, 3]")
     num_batch = pos_1.shape[0]
     device = pos_1.device
     batch_indices = (
@@ -228,9 +225,7 @@ def batch_align_structures(pos_1, pos_2, mask=None):
     return aligned_pos_1, pos_2, align_rots
 
 
-def adjust_oxygen_pos(
-    atom_37: torch.Tensor, pos_is_known=None
-) -> torch.Tensor:
+def adjust_oxygen_pos(atom_37: torch.Tensor, pos_is_known=None) -> torch.Tensor:
     """Imputes the position of the oxygen atom on the backbone by using
     adjacent frame information. Specifically, we say that the oxygen atom is in
     the plane created by the Calpha and C from the current frame and the
@@ -259,9 +254,7 @@ def adjust_oxygen_pos(
     calpha_to_carbonyl: torch.Tensor = (
         atom_37[:-1, 2, :] - atom_37[:-1, 1, :]
     ) / (
-        torch.norm(
-            atom_37[:-1, 2, :] - atom_37[:-1, 1, :], keepdim=True, dim=1
-        )
+        torch.norm(atom_37[:-1, 2, :] - atom_37[:-1, 1, :], keepdim=True, dim=1)
         + 1e-7
     )
     # For masked positions, they are all 0 and so we add 1e-7 to avoid division by 0.
@@ -338,9 +331,7 @@ def write_pkl(
     if create_dir:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
     if use_torch:
-        torch.save(
-            pkl_data, save_path, pickle_protocol=pickle.HIGHEST_PROTOCOL
-        )
+        torch.save(pkl_data, save_path, pickle_protocol=pickle.HIGHEST_PROTOCOL)
     else:
         with open(save_path, "wb") as handle:
             pickle.dump(pkl_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -385,9 +376,7 @@ def parse_chain_feats(chain_feats, scale_factor=1.0):
     ca_idx = residue_constants.atom_order["CA"]
     chain_feats["bb_mask"] = chain_feats["atom_mask"][:, ca_idx]
     bb_pos = chain_feats["atom_positions"][:, ca_idx]
-    bb_center = np.sum(bb_pos, axis=0) / (
-        np.sum(chain_feats["bb_mask"]) + 1e-5
-    )
+    bb_center = np.sum(bb_pos, axis=0) / (np.sum(chain_feats["bb_mask"]) + 1e-5)
     centered_pos = chain_feats["atom_positions"] - bb_center[None, None, :]
     scaled_pos = centered_pos / scale_factor
     chain_feats["atom_positions"] = (
@@ -434,9 +423,9 @@ def center_zero(
     Returns:
         pos: [N, 3] zero-centered batch positions of atoms in the molecule in sparse batch format.
     """
-    assert (
-        len(pos.shape) == 2 and pos.shape[-1] == 3
-    ), "pos must have shape [N, 3]"
+    assert len(pos.shape) == 2 and pos.shape[-1] == 3, (
+        "pos must have shape [N, 3]"
+    )
 
     means = scatter(pos, batch_indexes, dim=0, reduce="mean")
     return pos - means[batch_indexes]
@@ -587,8 +576,7 @@ def process_mmcif(mmcif_path: str, max_resolution: int, max_len: int):
 
     # Extract all chains
     struct_chains = {
-        chain.id.upper(): chain
-        for chain in parsed_mmcif.structure.get_chains()
+        chain.id.upper(): chain for chain in parsed_mmcif.structure.get_chains()
     }
     metadata["num_chains"] = len(struct_chains)
 
@@ -724,6 +712,96 @@ def process_pdb_file(file_path: str):
     return complex_feats, metadata
 
 
+def process_pdb_file_custom(file_path: str, chain_names: list[str]):
+    """Processes protein file into usable, smaller pickles.
+
+    Args:
+        file_path: Path to file to read.
+        write_dir: Directory to write pickles to.
+
+    Returns:
+        Saves processed protein to pickle and returns metadata.
+
+    Raises:
+        DataError if a known filtering rule is hit.
+        All other errors are unexpected and are propogated.
+    """
+    metadata = {}
+    pdb_name = os.path.basename(file_path).replace(".pdb", "")
+    metadata["pdb_name"] = pdb_name
+
+    metadata["raw_path"] = file_path
+    parser = PDB.PDBParser(QUIET=True)
+    structure = parser.get_structure(pdb_name, file_path)
+    # First, create a dict of all chains (保留原始大小写)
+    _all_chains = {chain.id: chain for chain in structure.get_chains()}
+    # 按照传入的chain_names进行排序并选择
+    struct_chains = {
+        chain_name: _all_chains[chain_name]
+        for chain_name in chain_names
+        if chain_name in _all_chains
+    }
+
+    # Extract all chains
+    metadata["num_chains"] = len(struct_chains)
+
+    # Extract features
+    struct_feats = []
+    all_seqs = set()
+    for chain_id, chain in struct_chains.items():
+        # Convert chain id into int
+        chain_id = chain_str_to_int(chain_id)
+        chain_prot = process_chain(chain, chain_id)
+        chain_dict = dataclasses.asdict(chain_prot)
+        chain_dict = parse_chain_feats(chain_dict)
+        all_seqs.add(tuple(chain_dict["aatype"]))
+        struct_feats.append(chain_dict)
+    if len(all_seqs) == 1:
+        metadata["quaternary_category"] = "homomer"
+    else:
+        metadata["quaternary_category"] = "heteromer"
+    complex_feats = concat_np_features(struct_feats, False)
+
+    # Process geometry features
+    complex_aatype = complex_feats["aatype"]
+    metadata["seq_len"] = len(complex_aatype)
+    modeled_idx = np.where(complex_aatype != 20)[0]
+    if np.sum(complex_aatype != 20) == 0:
+        raise LengthError("No modeled residues")
+    min_modeled_idx = np.min(modeled_idx)
+    max_modeled_idx = np.max(modeled_idx)
+    metadata["modeled_seq_len"] = max_modeled_idx - min_modeled_idx + 1
+    complex_feats["modeled_idx"] = modeled_idx
+
+    try:
+        # MDtraj
+        traj = md.load(file_path)
+        # SS calculation
+        pdb_ss = md.compute_dssp(traj, simplified=True)
+        # DG calculation
+        pdb_dg = md.compute_rg(traj)
+    except Exception as e:
+        raise DataError(f"Mdtraj failed with error {e}")
+
+    # change chain_set to complex feats
+    complex_feats["ss"] = pdb_ss[0]
+    metadata["coil_percent"] = (
+        np.sum(pdb_ss == "C") / metadata["modeled_seq_len"]
+    )
+    metadata["helix_percent"] = (
+        np.sum(pdb_ss == "H") / metadata["modeled_seq_len"]
+    )
+    metadata["strand_percent"] = (
+        np.sum(pdb_ss == "E") / metadata["modeled_seq_len"]
+    )
+
+    # Radius of gyration
+    metadata["radius_gyration"] = pdb_dg[0]
+
+    # Return metadata
+    return complex_feats, metadata
+
+
 def parse_pdb_feats(
     pdb_name: str,
     pdb_path: str,
@@ -801,9 +879,9 @@ def process_chain(chain: Chain, chain_id: str) -> Protein:
                 continue
             pos[residue_constants.atom_order[atom.name]] = atom.coord
             mask[residue_constants.atom_order[atom.name]] = 1.0
-            res_b_factors[
-                residue_constants.atom_order[atom.name]
-            ] = atom.bfactor
+            res_b_factors[residue_constants.atom_order[atom.name]] = (
+                atom.bfactor
+            )
         aatype.append(restype_idx)
         atom_positions.append(pos)
         atom_mask.append(mask)

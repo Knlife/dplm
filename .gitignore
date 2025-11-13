@@ -162,3 +162,13 @@ generation-results/
 data-bin/scaffolding-pdbs/*.pdb
 temp.ipynb
 # run/
+
+
+**/test/
+**/.test/
+**/.knlife/
+test_*
+
+data-bin/
+
+weights/

@@ -3,9 +3,7 @@
 
 
 import math
-import os
 from dataclasses import dataclass, field
-from typing import Optional
 
 import numpy as np
 import torch
@@ -83,7 +81,7 @@ class MultimodalDiffusionProteinLanguageModel(nn.Module):
         else:
             if "bit" in net.config.dplm_type:
                 raise ValueError(
-                    f"Bit model is not supported in this DPLM-2 class, please use DPLM-2 bit model instead."
+                    "Bit model is not supported in this DPLM-2 class, please use DPLM-2 bit model instead."
                 )
             self.net = net
 
@@ -197,7 +195,7 @@ class MultimodalDiffusionProteinLanguageModel(nn.Module):
     @property
     def struct_tokenizer(self):
         if not exists(self._struct_tokenizer):
-            print(f"Loading struct_tokenizer...")
+            print("Loading struct_tokenizer...")
             self._struct_tokenizer = get_struct_tokenizer(
                 self.cfg.struct_tokenizer.exp_path
             ).to(self.device)
@@ -248,9 +246,7 @@ class MultimodalDiffusionProteinLanguageModel(nn.Module):
             struct_attention_bias[
                 single_modality_index, :, :, L // 2 :
             ] = -math.inf
-            aa_attention_bias[
-                single_modality_index, :, :, : L // 2
-            ] = -math.inf
+            aa_attention_bias[single_modality_index, :, :, : L // 2] = -math.inf
             attention_bias = torch.concat(
                 [struct_attention_bias, aa_attention_bias], dim=-2
             )
@@ -519,9 +515,7 @@ class MultimodalDiffusionProteinLanguageModel(nn.Module):
             _tokens, _scores = stochastic_sample_from_categorical(
                 logits, temperature=0.0, noise_scale=noise_scale
             )
-            _tokens.masked_scatter_(
-                ~output_masks, output_tokens[~output_masks]
-            )
+            _tokens.masked_scatter_(~output_masks, output_tokens[~output_masks])
         elif sampling_strategy.startswith("annealing"):
             max_temp, min_temp = map(
                 float, sampling_strategy.split("@")[1].split(":")
@@ -609,9 +603,7 @@ class MultimodalDiffusionProteinLanguageModel(nn.Module):
 
             # compute the cutoff length for denoising top-k positions
             cutoff_len = (
-                non_special_sym_mask.sum(1, keepdim=True).type_as(
-                    output_scores
-                )
+                non_special_sym_mask.sum(1, keepdim=True).type_as(output_scores)
                 * rate
             ).long()
             # set the scores of special symbols to a large value so that they will never be selected
