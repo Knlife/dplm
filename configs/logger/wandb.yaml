@@ -6,7 +6,7 @@ wandb:
   id: null # pass correct id to resume experiment!
   name: ${name}
   save_dir: ${paths.log_dir}
-  offline: False # set True to store all logs only locally
+  offline: True # set True to store all logs only locally
   # entity: ""  # set to name of your wandb team
   log_model: False
   prefix: ""

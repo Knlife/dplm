@@ -172,3 +172,5 @@ test_*
 data-bin/
 
 weights/
+
+.knilfe/

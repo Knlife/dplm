@@ -6,7 +6,7 @@ max_tokens: 4000
 max_len: 1018
 num_workers: 4
 csv_file: SAbDab
-vocab_file: airkingbd/dplm2_650m # or a vocab.txt file from local
+vocab_file: /mnt/shared-storage-user/wangjie3/Diffs/dplm/weights/DPLM2/vocab.txt
 
 length_crop: true
 cluster_training: false

@@ -2,16 +2,17 @@ from typing import (
     Optional,
 )
 
+import numpy as np
 from datasets import Dataset
 from pytorch_lightning import LightningDataModule
 
 from byprot import utils
 from byprot.datamodules import register_datamodule
+from byprot.datamodules.dataset.tokenized_complex import TokenizedComplexDataset
 from byprot.datamodules.dataset.tokenized_protein import (
     DPLM2Tokenizer,
     setup_dataloader,
 )
-from byprot.datamodules.dataset.tokenized_complex import TokenizedComplexDataset
 
 log = utils.get_logger(__name__)
 
@@ -133,3 +134,29 @@ class TokenizedComplexDataModule(LightningDataModule):
             bucket_size=self.hparams.num_seqs,
             tokenizer=self.tokenizer,
         )
+
+
+def length_cropping(dataset_pandas, epoch, min_crop_length=60):
+    np.random.seed(epoch)
+    dataset_pandas["length"] = dataset_pandas["length"].apply(
+        lambda l: (
+            l
+            if np.random.rand() > 0.5
+            else (
+                np.random.randint(min_crop_length, l)
+                if l > min_crop_length
+                else l
+            )
+        )
+    )
+    return dataset_pandas
+
+
+def sample_cluster(dataset_pandas, epoch):
+    sampled_cluster = (
+        dataset_pandas.groupby("cluster")
+        .sample(1, random_state=epoch)
+        .sort_index()
+    )
+    sampled_cluster = sampled_cluster.drop(columns="__index_level_0__")
+    return sampled_cluster

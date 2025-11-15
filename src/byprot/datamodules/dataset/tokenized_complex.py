@@ -39,7 +39,19 @@ class TokenizedComplexDataset(Dataset):
         self.data_dir = data_dir
         self.split = split
         data_path = os.path.join(self.data_dir, csv_file.replace(".csv", ""))
-        self.data = load_dataset(data_path, name=split)["train"]  # type: ignore
+        self.data = load_dataset(
+            "parquet",
+            data_files={split: os.path.join(data_path, split, "*.parquet")},
+            split=split,
+        )
+        if "length" not in self.data.column_names:
+            self.data = self.data.map(
+                lambda item: {
+                    "length": len(item["heavy_aa_tok_seq"])
+                    + len(item["light_aa_tok_seq"])
+                    + len(item["epitope_aa_tok_seq"])
+                },
+            )
         log.info(f"Dataset size: {len(self.data)}")
 
         self.max_len = max_len
@@ -79,7 +91,13 @@ class TokenizedComplexDataset(Dataset):
         return_dict = {
             "struct_tokens": struct_tokens,
             "aatype_tokens": aatype_tokens,
-            "length": len(struct_tokens) + 2,
+            "length": (
+                len(row["heavy_aa_tok_seq"])
+                + len(row["light_aa_tok_seq"])
+                + len(row["epitope_aa_tok_seq"])
+                + 6
+                + aa_split_count
+            ),
         }
         if "pdb_name" in row:
             return_dict["pdb_name"] = row["pdb_name"]

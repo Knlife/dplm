@@ -27,7 +27,9 @@ class SelfMixupConfig:
 
 @dataclass
 class TokenizerConfig:
-    vocab_file: str = field(default="airkingbd/dplm2_650m")
+    vocab_file: str = field(
+        default="/mnt/shared-storage-user/wangjie3/Diffs/dplm/weights/DPLM2/vocab.txt"
+    )
     # amino acid tokens (33) + struct tokens (8192) + 4 special struct tokens
     vocab_size: int = field(default=33 + 8192 + 4)
 
@@ -35,7 +37,9 @@ class TokenizerConfig:
 @dataclass
 class StructTokenizerConfig:
     enable: bool = field(default=True)
-    exp_path: str = field(default="airkingbd/struct_tokenizer")
+    exp_path: str = field(
+        default="/mnt/shared-storage-user/wangjie3/Diffs/dplm/weights/DPLM_StrucTokenizer"
+    )
 
 
 @dataclass
